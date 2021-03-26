@@ -35,7 +35,7 @@ int my_looop()
     uint32_t ts;
 
     while(1)
-    {    
+    {
         printf("afes\n");
         if (freenect_sync_get_depth((void**)&depth, &ts, 0, FREENECT_DEPTH_11BIT) < 0)
             quit_func();
