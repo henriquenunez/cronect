@@ -20,4 +20,4 @@ That's it: no need for a messy green screen behind you to record videos!
 
 ## Thanks:
 
-- Thanks to [Oscar Aceña](https://bitbucket.org/OscarAcena/) for his work on [ocv-virtual-cam](https://bitbucket.org/OscarAcena/ocv-virtual-cam)
+- Thanks to [Oscar Aceña](https://bitbucket.org/OscarAcena/) for his work on [ocv-virtual-cam](https://bitbucket.org/OscarAcena/ocv-virtual-cam), on which this project has a large basis.
