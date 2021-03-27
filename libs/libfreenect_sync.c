@@ -445,3 +445,9 @@ void freenect_sync_stop(void)
 		pthread_join(thread, NULL);
 	}
 }
+
+freenect_device* freenect_sync_get_device_ref(int index)
+{
+    return kinects[index]->dev;
+}
+
