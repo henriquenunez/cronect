@@ -20,6 +20,10 @@ That's it: no need for a messy green screen behind you to record videos!
 - Perspective is wrong, so there's a significant offset in the captured image and the depth values.
 - Some noise appears on the image.
 
+## Results:
+
+![](./.assets/kinect_pic_11.png)
+
 ## Thanks:
 
 - Thanks to [Oscar Aceña](https://bitbucket.org/OscarAcena/) for his work on [ocv-virtual-cam](https://bitbucket.org/OscarAcena/ocv-virtual-cam), on which this project has a large basis.
