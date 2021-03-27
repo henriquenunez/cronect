@@ -12,6 +12,7 @@
 #include <libfreenect_registration.h>
 
 #include <opencv2/opencv.hpp>
+#include <opencv2/imgproc.hpp>
 
 #ifndef VID_WIDTH
 #define VID_WIDTH 640
@@ -21,12 +22,16 @@
 #define VID_HEIGHT 480
 #endif
 
+
 #define VIDEO_IN  "/dev/video0"
 #define VIDEO_OUT "/dev/video3" //TODO: make generic
 
 //output device.
 int output;
 bool should_run = true;
+int threshold;
+
+#define HIGH_RES
 
 size_t framesize = VID_WIDTH * VID_HEIGHT * 3;
 
@@ -36,7 +41,9 @@ freenect_device* fn_dev;
 // Buffers
 uint16_t *depth_buf;
 uint8_t *vid_buf;
-uint8_t *registered_rgb;
+
+// Morphological transformations.
+cv::Mat morph_kernel;
 
 void depth_cb(freenect_device* dev, void* data, uint32_t timestamp)
 {
@@ -69,26 +76,41 @@ void signal_handler(int signal)
 int process_frame()
 {
     // Stereo correction.
-    freenect_map_rgb_to_depth(fn_dev, depth_buf, vid_buf, registered_rgb);
-    //for now, just a memcpy
-    //memcpy(registered_rgb, vid_buf, 3 * VID_HEIGHT * VID_WIDTH);
+    // freenect_map_rgb_to_depth(fn_dev, depth_buf, vid_buf, registered_rgb);
+    // for now, just a memcpy
+    // memcpy(registered_rgb, vid_buf, 3 * VID_HEIGHT * VID_WIDTH);
+
+    // Closing small holes in image
+    cv::Mat frame(VID_HEIGHT, VID_WIDTH, CV_16UC1, depth_buf);
+    cv::threshold(frame, frame, 1000, 65535, 0);
+
+    cv::Mat frame_morph_open, frame_morph_close;
+    cv::morphologyEx(frame, frame_morph_open, cv::MORPH_OPEN, morph_kernel);
+    cv::morphologyEx(frame_morph_open, frame_morph_close, cv::MORPH_CLOSE, morph_kernel);
 
     //Applies the threshold onto the frame.
     for (int i = 0; i < VID_HEIGHT; ++i)
     {
         for (int j = 0; j < VID_WIDTH; ++j)
         {
-            if(depth_buf[VID_WIDTH * i + j] > 700)
+	    //if (i < 50 && j < 50)
+	    
+            if(((uint16_t*)frame_morph_close.data)[VID_WIDTH * i + j] > 100) //This is just an overkiller now.
             {
-                registered_rgb[(VID_WIDTH * i + j) * 3] = 0;
-                registered_rgb[(VID_WIDTH * i + j) * 3 + 1] = 0xFF;
-                registered_rgb[(VID_WIDTH * i + j) * 3 + 2] = 0;
+                vid_buf[(VID_WIDTH * i + j) * 3] = 0;
+                vid_buf[(VID_WIDTH * i + j) * 3 + 1] = 0xFF;
+                vid_buf[(VID_WIDTH * i + j) * 3 + 2] = 0;
             }
         }
     }
 
-    //cv::Mat frame(VID_HEIGHT, VID_WIDTH, CV_8UC3, registered_rgb);
-    size_t written = write(output, registered_rgb, 3 * VID_HEIGHT * VID_WIDTH);
+    //cv::Mat result;
+    //cv::cvtColor(frame_morph_close, result, cv::COLOR_GRAY2RGB, 3);
+    //result.convertTo(result, CV_8UC3, 0.35);
+    //printf("Values at the center: %u\n", depth_buf[VID_WIDTH * VID_HEIGHT/2 + VID_WIDTH/2]);
+
+    //size_t written = write(output, result.data, framesize);
+    size_t written = write(output, vid_buf, framesize);
     if (written < 0) {
         std::cerr << "ERROR: could not write to output device!\n";
         close(output);
@@ -101,6 +123,9 @@ int process_frame()
 int main(int argc, char* argv[])
 {
     int rc = 0;
+
+    if (argc < 2) threshold = 1000;
+    else threshold = atoi(argv[1]);
 
     /***OUTPUT STREAM CONFIG********/
     output = open(VIDEO_OUT, O_RDWR);
@@ -173,7 +198,7 @@ int main(int argc, char* argv[])
 	return rc;
     }
 
-    rc = freenect_set_depth_mode(fn_dev, freenect_find_depth_mode(FREENECT_RESOLUTION_MEDIUM, FREENECT_DEPTH_MM));
+    rc = freenect_set_depth_mode(fn_dev, freenect_find_depth_mode(FREENECT_RESOLUTION_MEDIUM, FREENECT_DEPTH_REGISTERED));
     if (rc < 0)
     {
 	freenect_shutdown(fn_ctx);
@@ -186,7 +211,6 @@ int main(int argc, char* argv[])
 
     // Buffers
     vid_buf = (uint8_t*) malloc(3 * VID_HEIGHT * VID_WIDTH);
-    registered_rgb = (uint8_t*) malloc(3 * VID_HEIGHT * VID_WIDTH);
     depth_buf = (uint16_t*) malloc(sizeof(uint16_t) * VID_HEIGHT * VID_WIDTH);
 
     // Start reading.
@@ -197,7 +221,6 @@ int main(int argc, char* argv[])
 
         free(depth_buf);
         free(vid_buf);
-        free(registered_rgb);
 
 	return rc;
     }
@@ -209,12 +232,14 @@ int main(int argc, char* argv[])
 
         free(depth_buf);
         free(vid_buf);
-        free(registered_rgb);
 
 	return rc;
     }
 
     /***END KINECT CONFIGURATION***/
+
+    // OpenCV setup
+    morph_kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(3, 3));
 
     while (should_run && freenect_process_events(fn_ctx) >= 0)
     {
@@ -230,7 +255,6 @@ int main(int argc, char* argv[])
 
     free(depth_buf);
     free(vid_buf);
-    free(registered_rgb);
 
     printf("See ya!\n");
 
