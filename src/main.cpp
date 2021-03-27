@@ -8,8 +8,6 @@
 #include <linux/videodev2.h>
 
 #include <libfreenect.h>
-#include "../libs/libfreenect_sync.h"
-#include <libfreenect_registration.h>
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc.hpp>
